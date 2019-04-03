@@ -188,7 +188,7 @@ def clean_df(dirtyData, startDate, endDate):
     return df, candlePlotData
 
 
-def VaR_single_stock(tickerSymbol, startDate, endDate, vizData=False):
+def single_stock_VaR(tickerSymbol, startDate, endDate, vizData=False):
 
     # Fetch price data
     dirtyData = pull_data(tickerSymbol)
@@ -234,12 +234,21 @@ def VaR_single_stock(tickerSymbol, startDate, endDate, vizData=False):
     # Print the tabulated VaR
     print (tabulate([['90%', Var_90_1, Var_90_2, Var_90_3], ['95%', Var_95_1, Var_95_2, Var_95_3], ['99%', Var_99_1, Var_99_2, Var_99_3]], headers=["Confidence Level", "Value at Risk (VCV-norm)", "Value at Risk (VCV-t)", "Value at Risk (Hist)"]))
     print("\n")
-'''
-def VaR_portfolio():
 
-'''
+def portfolio_VaR():
+    startDate = '2018-07-20'
+    endDate = '2019-04-02'
+    positions = pd.read_csv("./portfolio.csv", delimiter=',')
+    #print(positions)
+
+    for index, row in positions.iterrows():
+        single_stock_VaR(row['Symbol'], startDate, endDate, vizData=True)
+
+
+
 if __name__ == '__main__':
     print('\n')
-    profile.run("VaR_single_stock('AAPL', '2018-07-20', '2019-04-02', vizData=True)", "VaR_Stats")
+    profile.run('portfolio_VaR()', 'VaR_Stats')
+    #profile.run("single_stock_VaR('AAPL', '2018-07-20', '2019-04-02', vizData=True)", "VaR_Stats")
     p = pstats.Stats('VaR_Stats')
-    p.strip_dirs().sort_stats('time', 'ncalls').print_stats(10)
+    p.strip_dirs().sort_stats('time', 'ncalls').print_stats(1)
