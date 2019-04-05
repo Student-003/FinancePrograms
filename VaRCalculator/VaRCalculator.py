@@ -60,7 +60,7 @@ def plot_candles(df, title=None, volumeBars=False, colorFunction=None, overlays=
     x = np.arange(len(df))
     candleColors = [colorFunction(i, open, close, low, high) for i in x]
     candles = ax1.bar(x, ocMax-ocMin, bottom=ocMin, color=candleColors, linewidth=0)
-    lines = ax1.vlines(x + 0.4, low, high, color=candleColors, linewidth=1)
+    lines = ax1.vlines(x, low, high, color=candleColors, linewidth=1)
     ax1.xaxis.grid(False)
     ax1.xaxis.set_tick_params(which='major', length=3.0, direction='in', top=False)
     # Assume minute frequency if first two bars are in the same day.
@@ -146,7 +146,7 @@ def pull_data(tickerSymbol):
     # Find API key
     print('...Fetching data from Alpha Vantage API...')
     parser = configparser.ConfigParser()
-    foundFile = parser.read(['./secret.ini', './template_secret.ini'])
+    foundFile = parser.read(['./resources/secret.ini', './resources/template_secret.ini'])
     apiKey = parser.get('API_KEYS','ALPHA_VANTAGE') if './secret.ini' in foundFile else parser.get('API_KEYS_TEMPLATE','ALPHA_VANTAGE')
     if (apiKey == 'guest'):
         print('\nNOTE: You are using the demo API Key. Please request an Alpha Vantage API key from https://www.alphavantage.co\n')
@@ -154,12 +154,25 @@ def pull_data(tickerSymbol):
     # Alpha Vantage documentation and free API key can be found at https://www.alphavantage.co
     ts = TimeSeries(key=apiKey, output_format='pandas')
     data, meta_data = ts.get_daily(symbol=tickerSymbol, outputsize='full')
+    outFile = "./resources/" + meta_data['2. Symbol'] + "PriceData.csv"
+    data.to_csv(outFile)
     print('\nInitial Data:')
     pprint(data.head())
     return data
 
 
 def clean_df(dirtyData, startDate, endDate):
+    daysShift = 0
+    startDateCopy = startDate
+    # Check that startDate is not on a weekend or holiday
+    while (startDate not in dirtyData.index):
+        # Increment the day value
+        #print(startDate[8:])
+        day = str(int(startDate[8:])+1)
+        daysShift += 1
+        startDate = ''.join((startDate[:8], day))
+        #print(startDate)
+
     # Format column names
     print('\n...Cleaning data...\n')
     dirtyData.rename(columns={'1. open': 'Open', '2. high': 'High', '3. low': 'Low', '4. close': 'Close', '5. volume': 'Volume'}, inplace=True)
@@ -179,7 +192,10 @@ def clean_df(dirtyData, startDate, endDate):
     endDateIdx = df.index.get_loc(endDate)
     df = df[startDateIdx:endDateIdx+1]
     candlePlotData = dirtyData[startDateIdx:endDateIdx+1]
-    print('\nCleaned dataframe:\nChosen start date: ' + startDate + '\nChosen end date: ' + endDate)
+    print('\nCleaned dataframe:\nChosen start date: ' + startDateCopy + '\nChosen end date: ' + endDate)
+    if (daysShift>0):
+        print('\nError: there was an issue with the given start date and has been moved by ' + str(daysShift) + ' days\nThe start date is now: ' +  startDate)
+
     print('First observation:')
     pprint(df.head(1))
     print('\nLast observation:')
@@ -192,7 +208,9 @@ def single_stock_VaR(tickerSymbol, startDate, endDate, vizData=False):
 
     # Fetch price data
     dirtyData = pull_data(tickerSymbol)
+
     df, candleDf = clean_df(dirtyData, startDate, endDate)
+
 
     ############################################################################
     ### Variance-Covariance Method #############################################
@@ -236,19 +254,19 @@ def single_stock_VaR(tickerSymbol, startDate, endDate, vizData=False):
     print("\n")
 
 def portfolio_VaR():
-    startDate = '2018-07-20'
-    endDate = '2019-04-02'
-    positions = pd.read_csv("./portfolio.csv", delimiter=',')
+    startDate = '2014-04-05'
+    endDate = '2019-04-04'
+    positions = pd.read_csv("./resources/portfolio.csv", delimiter=',')
     #print(positions)
 
     for index, row in positions.iterrows():
-        single_stock_VaR(row['Symbol'], startDate, endDate, vizData=True)
+        single_stock_VaR(row['Symbol'], startDate, endDate, vizData=False)
 
 
 
 if __name__ == '__main__':
     print('\n')
-    profile.run('portfolio_VaR()', 'VaR_Stats')
+    profile.run('portfolio_VaR()', 'resources/VaR_Stats')
     #profile.run("single_stock_VaR('AAPL', '2018-07-20', '2019-04-02', vizData=True)", "VaR_Stats")
-    p = pstats.Stats('VaR_Stats')
+    p = pstats.Stats('resources/VaR_Stats')
     p.strip_dirs().sort_stats('time', 'ncalls').print_stats(1)
